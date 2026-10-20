@@ -22,6 +22,7 @@ on port `50052`. You can run several switches at once, each with its own name an
 ├── start-vswitch-op4s-container.sh   # start a switch
 ├── list-vswitch-op4s-containers.sh   # list running switches
 ├── kill-vswitch-op4s-containers.sh   # stop switches
+├── link-vswitch-op4s.sh              # connect switch ports (and hosts)
 ├── pack-vswitch-op4s-container.sh    # create a distributable package
 └── docker/
     ├── Dockerfile.vswitch-op4s       # multi-stage build (builder + slim runtime)
@@ -107,6 +108,87 @@ pipe 1 at 128, and so on). Tofino 2 uses a different numbering: set `--ports` an
 Ports must also be added and enabled from the control plane (BF Runtime or bfshell)
 before they forward traffic.
 
+## Connecting switches and hosts
+
+`link-vswitch-op4s.sh` connects two endpoints with a virtual cable, so you can build
+topologies of switches and hosts. Switches do not need to be restarted.
+
+### Usage
+
+```bash
+./link-vswitch-op4s.sh ENDPOINT_A ENDPOINT_B       # create a link
+./link-vswitch-op4s.sh -d ENDPOINT_A ENDPOINT_B    # remove it
+```
+
+An endpoint can be:
+
+| Endpoint | Meaning | Example |
+|---|---|---|
+| `SWITCH:PORT` | A device port of a vswitch-op4s container. The port must be one of the `--ports` the switch was started with. | `sw1:0` |
+| `CONTAINER:IFACE` | A new interface created in any other container (for example, a host). | `h1:eth1` |
+| `CONTAINER:IFACE:IP/PREFIX` | Same, and the IP address is assigned to the new interface. | `h1:eth1:10.0.0.1/24` |
+
+The script runs `ip`, `tc` and `nsenter` on the Docker host, so it needs `sudo`.
+
+### Example: h1 -- sw1 -- sw2 -- h2
+
+```bash
+# Two switches
+./start-vswitch-op4s-container.sh                 # sw1
+./start-vswitch-op4s-container.sh                 # sw2
+
+# Two hosts with no network other than the links we create
+docker run -dit --name h1 --network none --cap-add NET_ADMIN alpine
+docker run -dit --name h2 --network none --cap-add NET_ADMIN alpine
+
+# Cables
+./link-vswitch-op4s.sh h1:eth1:10.0.0.1/24 sw1:0
+./link-vswitch-op4s.sh sw1:1 sw2:0
+./link-vswitch-op4s.sh sw2:1 h2:eth1:10.0.0.2/24
+
+# Once the switches forward traffic (see below)
+docker exec h1 ping 10.0.0.2
+
+# Remove a link
+./link-vswitch-op4s.sh -d sw1:1 sw2:0
+```
+
+### How it works
+
+1. A veth pair is created on the Docker host and each end is moved into the network
+   namespace of one container (found through the container PID).
+2. In a host container, the end is renamed to the interface name you gave
+   (`eth1`) and gets the IP address, if any.
+3. In a switch container, the end is renamed to `p<PORT>` (for example `p1`). The script
+   reads `/var/log/tofino/ports.json` to find the traffic side of that port
+   (`veth1`, `veth3`, ...) and adds two `tc` rules that redirect every packet between
+   `p<PORT>` and that veth, in both directions.
+
+Packet path for `sw1:1 <-> sw2:0`:
+
+```
+sw1: tofino-model -> veth2 -> veth3 -> (tc) -> p1 ====cable==== p0 -> (tc) -> veth1 -> veth0 -> tofino-model :sw2
+```
+
+### Checking a link
+
+```bash
+docker exec sw1 ip link show p1                      # cable end exists and is UP
+docker exec sw1 tc filter show dev veth3 ingress     # redirect rule in place
+docker exec -it sw2 tcpdump -ni p0                   # watch packets arriving at sw2
+```
+
+### Notes
+
+- **Links are not persistent.** They disappear when either container stops; recreate
+  them after restarting a switch or host.
+- **A port can only have one link.** Linking a port that is already linked fails with
+  "interface pN already exists". Remove the old link first with `-d`.
+- **A link does not mean forwarding.** Packets only cross a switch if its ports are
+  enabled in `bf_switchd` and the loaded P4 program (with its table entries) forwards them.
+- You can still capture or inject traffic on the traffic veth of a linked port
+  (`veth3` in the example above) for debugging.
+
 ## Logs
 
 ```bash
@@ -133,8 +215,8 @@ tar xzf vswitch-op4s-latest.tgz && cd vswitch-op4s && ./start-vswitch-op4s-conta
   control planes, not for performance measurements.
 - Only the P4-16 examples compiled into the image can be loaded for now.
   **Planned:** load user-compiled programs from a mounted volume.
-- Switches are not connected to each other: each container's veths live in its own
-  network namespace. **Planned:** links between switches to build topologies.
+- Links are created by hand with `link-vswitch-op4s.sh`. **Planned:** describe a whole
+  topology in a file and create it with one command.
 
 ## License
 
