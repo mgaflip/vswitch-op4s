@@ -1,0 +1,72 @@
+# syntax=docker/dockerfile:1
+# Copyright RSTI-UPM
+# SPDX-License-Identifier: Apache-2.0
+
+############################
+# Stage 1: build
+############################
+FROM ubuntu:24.04 AS builder
+LABEL maintainer="RSTI UPM"
+LABEL description="This Docker image includes the OPEN P4STUDIO software"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Minimal dependencies to run p4studio (it installs the rest itself)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        sudo python3-pip build-essential cmake ca-certificates libssl-dev git binutils && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy the profile before the source: if only the profile changes, apt stays cached
+COPY vswitch-op4s.yaml /tmp/vswitch-op4s.yaml
+
+# Extract + build + clean up in a SINGLE layer:
+#  - the .tgz is bind-mounted (not copied), so no extra ~650 MB layer is created
+#  - the build/ directory (several GB) is removed before the layer is committed,
+#    so it does not stay in the Docker cache eating disk space
+#  - /lib/modules/<host kernel>/build is created only to pass p4studio's
+#    startup check; kernel modules are disabled in the profile
+RUN --mount=type=bind,source=open-p4studio.tgz,target=/tmp/open-p4studio.tgz \
+    tar xzf /tmp/open-p4studio.tgz -C /home && \
+    cd /home/open-p4studio && \
+    mkdir -p /lib/modules/$(uname -r)/build && \
+    ./p4studio/p4studio profile apply /tmp/vswitch-op4s.yaml && \
+    rm -rf build pkgsrc .git
+
+# Slim down install/: remove static libraries, headers and debug symbols
+# (drop the strip line if you need to debug with gdb inside the container)
+RUN cd /home/open-p4studio/install && \
+    find . -type f -name "*.a" -delete && \
+    rm -rf include && \
+    find . -type f \( -name "*.so*" -o -perm -u+x \) \
+        -exec strip --strip-unneeded {} + 2>/dev/null || true
+
+############################
+# Stage 2: runtime
+############################
+FROM ubuntu:24.04 AS runtime
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Runtime dependencies (installed before copying install/ to make use of the cache).
+# Check with ldd for missing libraries and add their packages here if needed.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        sudo iproute2 procps ethtool python3 libssl3 && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /home/open-p4studio
+
+ENV SDE=/home/open-p4studio
+ENV SDE_INSTALL=$SDE/install
+ENV LD_LIBRARY_PATH=$SDE_INSTALL/lib
+ENV PATH="$PATH:$SDE:$SDE_INSTALL/bin"
+
+COPY --from=builder /home/open-p4studio/run_*.sh ./
+COPY --from=builder /home/open-p4studio/install ./install
+COPY --chmod=755 start-tofino-switch.sh ./
+
+# BF Runtime gRPC port
+EXPOSE 50052/tcp
+
+ENTRYPOINT ["./start-tofino-switch.sh"]

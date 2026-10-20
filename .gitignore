@@ -1,0 +1,15 @@
+# Saved Docker images and generated packages
+images/
+*.tgz
+*.tar.gz
+
+# open-p4studio sources downloaded by the build script
+docker/open-p4studio/
+docker/open-p4studio.tgz
+
+# Temporary package directory
+vswitch-op4s/
+
+# Editor files
+*.swp
+*~

@@ -1,0 +1,2 @@
+# Only open-p4studio.tgz is needed in the build context, not the unpacked sources
+open-p4studio/
