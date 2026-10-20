@@ -43,7 +43,7 @@ on port `50052`. You can run several switches at once, each with its own name an
 ./list-vswitch-op4s-containers.sh
 
 # 4. Open the bfshell prompt (detach with Ctrl-P Ctrl-Q)
-docker attach vswitch-op4s-tna_counter
+docker attach sw1
 
 # 5. Stop all switches
 ./kill-vswitch-op4s-containers.sh
@@ -55,7 +55,8 @@ Every option has a default, so the script can be run without arguments.
 
 | Option | Description | Default |
 |---|---|---|
-| `-n, --name` | Container name | `vswitch-op4s-<prog>` |
+| `-n, --name` | Container name | first free `sw1`, `sw2`, ... |
+| `--prefix` | Prefix for automatic names | `sw` |
 | `-p, --prog` | P4 program | `tna_counter` |
 | `-a, --arch` | `tofino` or `tofino2` | `tofino` |
 | `--ports` | Switch device ports | `"0 1 2 3"` |

@@ -7,7 +7,7 @@
 # starts a 4-port Tofino switch running tna_counter.
 #
 # Examples:
-#   ./start-vswitch-op4s-container.sh
+#   ./start-vswitch-op4s-container.sh                     # -> sw1, then sw2, ...
 #   ./start-vswitch-op4s-container.sh --name sw1 --prog tna_exact_match --ports "0 1"
 #   ./start-vswitch-op4s-container.sh --name sw2 --arch tofino2 --net p4net --ip 172.30.0.12
 #   ./start-vswitch-op4s-container.sh --name sw4 --grpc-port 50052   # reachable from outside the VM
@@ -24,6 +24,7 @@ MODEL_NAME=vswitch-op4s
 # ---- Defaults (can be overridden by environment variables or options) ----
 MODEL_VERSION=${MODEL_VERSION:-latest}   # image tag
 SW_NAME=${SW_NAME:-}                     # container name (auto if empty)
+SW_PREFIX=${SW_PREFIX:-sw}               # prefix for automatic names: sw1, sw2, ...
 P4_PROG=${P4_PROG:-tna_counter}          # P4 program to load
 P4_ARCH=${P4_ARCH:-tofino}               # tofino | tofino2
 DEV_PORTS=${DEV_PORTS:-"0 1 2 3"}        # switch device ports
@@ -39,7 +40,8 @@ usage() {
 Usage: $(basename "$0") [options] [-- extra docker run args]
 
 Options:
-  -n, --name NAME          Container name            (default: ${MODEL_NAME}-<prog>)
+  -n, --name NAME          Container name            (default: first free ${SW_PREFIX}1, ${SW_PREFIX}2, ...)
+      --prefix PREFIX      Prefix for automatic names (default: ${SW_PREFIX})
   -p, --prog PROG          P4 program                (default: ${P4_PROG})
   -a, --arch ARCH          tofino | tofino2          (default: ${P4_ARCH})
       --ports "P1 P2 ..."  Switch device ports       (default: "${DEV_PORTS}")
@@ -62,6 +64,7 @@ EXTRA_ARGS=()
 while [ $# -gt 0 ]; do
     case "$1" in
         -n|--name)        SW_NAME="$2"; shift 2 ;;
+        --prefix)         SW_PREFIX="$2"; shift 2 ;;
         -p|--prog)        P4_PROG="$2"; shift 2 ;;
         -a|--arch)        P4_ARCH="$2"; shift 2 ;;
         --ports)          DEV_PORTS="$2"; shift 2 ;;
@@ -85,7 +88,6 @@ esac
 
 MODEL_IMAGE=${MODEL_NAME}:${MODEL_VERSION}
 DKIMG_FILE=${IMGDIR}/${MODEL_NAME}-${MODEL_VERSION}-docker.tar.gz
-SW_NAME=${SW_NAME:-${MODEL_NAME}-${P4_PROG}}
 
 echo "Starting ${MODEL_DESC}"
 
@@ -97,10 +99,24 @@ else
     docker load -i "${DKIMG_FILE}"
 fi
 
-# ---- Refuse to start if a container with the same name already exists ----
-if docker ps -a --format '{{.Names}}' | grep -qx "${SW_NAME}"; then
-    echo "A container named ${SW_NAME} already exists. Use --name or stop it first." >&2
-    exit 1
+# ---- Container name ----
+name_in_use() {
+    docker ps -a --format '{{.Names}}' | grep -qx "$1"
+}
+
+if [ -n "$SW_NAME" ]; then
+    # Explicit name: it must be free
+    if name_in_use "$SW_NAME"; then
+        echo "A container named ${SW_NAME} already exists. Use another --name or stop it first." >&2
+        exit 1
+    fi
+else
+    # Automatic name: first free <prefix>1, <prefix>2, ...
+    n=1
+    while name_in_use "${SW_PREFIX}${n}"; do
+        n=$((n + 1))
+    done
+    SW_NAME="${SW_PREFIX}${n}"
 fi
 
 # ---- Network: every container has its own IP, so all of them can use 50052 ----
