@@ -1,0 +1,23 @@
+Using SDE /home/open-p4studio
+Using SDE_INSTALL /home/open-p4studio/install
+find: '/home/open-p4studio/pkgsrc': No such file or directory
+find: '/home/open-p4studio/pkgsrc': No such file or directory
+Model using test directory: 
+Model using port info file: /var/log/tofino/ports.json
+Using SDE_DEPENDENCIES /home/open-p4studio/install
+Using PATH /home/open-p4studio/install/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/open-p4studio:/home/open-p4studio/install/bin
+Using LD_LIBRARY_PATH /home/open-p4studio/install/lib:/home/open-p4studio/install/lib:/home/open-p4studio/install/lib:/usr/local/lib
+ PRIVS: Eff=0x00000000 Perm=0x00002006 Inh=0x00000000
+Performing preliminary checks on config file
+Opening p4 target config file '/home/open-p4studio/install/share/p4/targets/tofino/tna_counter.conf' ...
+Loaded p4 target config file
+ Package size 1
+ No of Chips is 1
+ Of-Port info file is /var/log/tofino/ports.json
+Chip part revision number is 1
+ No of Packages is 1
+Chip 0 SKU: defaulting to BFN77110
+Chip 0 SKU setting: sku 0 pipe mode 0
+Chip 0 Physical pipes enabled bitmap 0xf 
+Opening /var/log/tofino/ports.json '/var/log/tofino/ports.json' ...
+Loaded /var/log/tofino/ports.json

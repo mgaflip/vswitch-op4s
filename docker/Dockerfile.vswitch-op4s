@@ -49,10 +49,18 @@ FROM ubuntu:24.04 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Runtime dependencies (installed before copying install/ to make use of the cache).
-# Check with ldd for missing libraries and add their packages here if needed.
+#   Tools used by start-tofino-switch.sh: iproute2, procps (sysctl), ethtool
+#   Shared libraries required by the SDE binaries (found with ldd):
+#     libpcap0.8t64      -> libpcap.so.0.8        (tofino-model, packet I/O on veths)
+#     libedit2           -> libedit.so.2          (bfshell command line)
+#     libevent-2.1-7t64  -> libevent-2.1.so.7
+#     libpython3.12t64   -> libpython3.12.so.1.0  (bfrt_python shell)
+# To check for missing libraries after a build:
+#   for f in install/bin/* $(find install/lib -name "*.so*"); do ldd "$f"; done | grep "not found"
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        sudo iproute2 procps ethtool python3 libssl3 && \
+        sudo iproute2 procps ethtool python3 libssl3 \
+        libpcap0.8t64 libedit2 libevent-2.1-7t64 libpython3.12t64 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/open-p4studio

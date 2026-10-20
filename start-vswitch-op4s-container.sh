@@ -34,6 +34,7 @@ GRPC_PORT=${GRPC_PORT:-}                 # publish gRPC on this host port (empty
 SW_NET=${SW_NET:-}                       # docker network (empty = default bridge)
 SW_IP=${SW_IP:-}                         # fixed IP in SW_NET (empty = automatic)
 INTERACTIVE=${INTERACTIVE:-0}            # 1 = stay attached to the bfshell prompt
+KEEP=${KEEP:-0}                          # 1 = keep the container after it stops (debugging)
 
 usage() {
     cat << EOF
@@ -53,6 +54,8 @@ Options:
                            the switch from outside the VM (0 = random port)
   -v, --version TAG        Image tag                 (default: ${MODEL_VERSION})
   -i, --interactive        Stay attached to the bfshell prompt
+  -k, --keep               Keep the container after it stops, to read its logs
+                           (remove it later with: docker rm NAME)
   -h, --help               Show this help
 
 Anything after "--" is passed unchanged to "docker run".
@@ -75,6 +78,7 @@ while [ $# -gt 0 ]; do
         -g|--grpc-port)   GRPC_PORT="$2"; shift 2 ;;
         -v|--version)     MODEL_VERSION="$2"; shift 2 ;;
         -i|--interactive) INTERACTIVE=1; shift ;;
+        -k|--keep)        KEEP=1; shift ;;
         -h|--help)        usage; exit 0 ;;
         --)               shift; EXTRA_ARGS=("$@"); break ;;
         *)                echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
@@ -149,10 +153,16 @@ else
     RUN_MODE=(-dit)
 fi
 
+# ---- Remove the container when it stops, unless --keep ----
+RM_ARGS=(--rm)
+if [ "$KEEP" = "1" ]; then
+    RM_ARGS=()
+fi
+
 echo "  name=${SW_NAME}  prog=${P4_PROG}  arch=${P4_ARCH}  ports=[${DEV_PORTS}]"
 
 set -x
-docker run "${RUN_MODE[@]}" --rm --privileged \
+docker run "${RUN_MODE[@]}" "${RM_ARGS[@]}" --privileged \
     --name "${SW_NAME}" \
     --hostname "${SW_NAME}" \
     "${NET_ARGS[@]}" \
@@ -177,4 +187,7 @@ if [ "$INTERACTIVE" != "1" ]; then
     echo "  bfshell:           docker attach ${SW_NAME}   (detach with Ctrl-P Ctrl-Q)"
     echo "  model log:         docker exec ${SW_NAME} tail -f /var/log/tofino/tofino_model.log"
     echo "  shell:             docker exec -it ${SW_NAME} bash"
+    if [ "$KEEP" = "1" ]; then
+        echo "  kept after stop:   docker logs ${SW_NAME}; docker rm ${SW_NAME}"
+    fi
 fi

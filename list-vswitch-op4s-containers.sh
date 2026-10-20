@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # List the Open P4 Studio virtual switch containers with their configuration:
-# container ID, name, status, IP address(es), P4 program, architecture, ports and gRPC endpoint.
+# container ID, name, status, P4 program, architecture, ports, gRPC endpoint
+# (container IP:50052) and the host port where gRPC is published, if any (-g).
 #
 # Usage: ./list-vswitch-op4s-containers.sh [-a]
 #   -a   also show stopped containers
@@ -34,8 +35,8 @@ get_env() {
     echo "$env_list" | sed -n "s/^${var}=//p" | head -1
 }
 
-FMT="%-13s %-20s %-10s %-16s %-18s %-8s %-14s %-20s %s\n"
-printf "$FMT" "CID" "NAME" "STATUS" "IP" "PROGRAM" "ARCH" "PORTS" "HOST gRPC" "IMAGE"
+FMT="%-13s %-12s %-9s %-18s %-8s %-14s %-22s %-16s %s\n"
+printf "$FMT" "CID" "NAME" "STATUS" "PROGRAM" "ARCH" "PORTS" "gRPC" "PUBLISHED" "IMAGE"
 
 for name in "${CONTAINERS[@]}"; do
     cid=$(docker inspect -f '{{.Id}}' "$name" | cut -c1-12)
@@ -49,7 +50,13 @@ for name in "${CONTAINERS[@]}"; do
     ports=$(get_env "$env_list" DEV_PORTS)
     host_grpc=$(docker port "$name" 50052 2> /dev/null | head -1 || true)
 
+    # gRPC endpoint on each container IP (several if attached to several networks)
+    grpc=""
+    for ip in $ips; do
+        grpc="${grpc:+$grpc }${ip}:50052"
+    done
+
     printf "$FMT" \
-        "$cid" "$name" "$status" "${ips:--}" "${prog:--}" "${arch:--}" \
-        "${ports:--}" "${host_grpc:--}" "$image"
+        "$cid" "$name" "$status" "${prog:--}" "${arch:--}" \
+        "${ports:--}" "${grpc:--}" "${host_grpc:--}" "$image"
 done

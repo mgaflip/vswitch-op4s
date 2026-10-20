@@ -68,6 +68,7 @@ Every option has a default, so the script can be run without arguments.
 | `-g, --grpc-port` | Also publish gRPC on this host port (`0` = random) | not published |
 | `-v, --version` | Image tag | `latest` |
 | `-i, --interactive` | Stay attached to the bfshell prompt | |
+| `-k, --keep` | Keep the container after it stops, to read its logs (`docker rm` it later) | |
 
 Anything after `--` is passed to `docker run` unchanged.
 
