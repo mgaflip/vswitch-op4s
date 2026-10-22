@@ -81,8 +81,8 @@ This step is optional: `start-vswitch-op4s-container.sh` and the examples pull t
 themselves the first time they need it. To use a fixed version instead of `latest`,
 pull and tag that version (for example `0.1.0`) and start switches with `-v 0.1.0`.
 
-Alternatively, load it from a package created with `./pack-vswitch-op4s-container.sh`
-(useful on machines without internet access), or build it from scratch (several hours,
+Alternatively, load it from an [offline package](#installing-without-internet-access),
+or build it from scratch (several hours,
 16 GB of RAM, 30–40 GB of free disk) with `./build-vswitch-op4s-container.sh`.
 
 **5. Hugepages.** Reserve 72 per switch you will run, plus any switch already running
@@ -139,7 +139,8 @@ them (`sleep 10`) so each one has reserved its hugepages before the next check.
 ├── kill-vswitch-op4s-containers.sh   # stop switches
 ├── link-vswitch-op4s.sh              # connect switch ports (and hosts)
 ├── configure-vswitch-op4s.py         # configure switches from JSON (p4-bfrt-manager)
-├── pack-vswitch-op4s-container.sh    # create a distributable package
+├── pack-vswitch-op4s-container.sh    # create an offline package (image + scripts)
+├── RELEASING.md                      # how to build and publish new image versions
 ├── examples/
 │   ├── basic_router/                 # 2 switches + 2 hosts, own P4 router program
 │   └── tna_lpm_match/                # same network with a precompiled SDE example
@@ -420,38 +421,16 @@ docker exec sw1 tail -f /var/log/tofino/tofino_model.log
 docker exec -it sw1 bash
 ```
 
-## Distributing the image
+## Installing without internet access
 
-**Registry (recommended).** Prebuilt images are published on GitHub Container Registry
-as `ghcr.io/mgaflip/vswitch-op4s`, with a `latest` tag and one tag per version
-(`0.1.0`, ...). `start-vswitch-op4s-container.sh` pulls the image when it is not
-available locally.
-
-To publish a new version (maintainers), after building it with
-`./build-vswitch-op4s-container.sh`, log in with a GitHub token that has the
-`write:packages` scope and push both tags:
+To use the switches on a machine that cannot pull the image, create a package on a
+machine that has it, with the image and the scripts in a single file:
 
 ```bash
-docker login ghcr.io -u mgaflip            # paste the token when asked for a password
-docker tag vswitch-op4s:latest ghcr.io/mgaflip/vswitch-op4s:0.2.0
-docker tag vswitch-op4s:latest ghcr.io/mgaflip/vswitch-op4s:latest
-docker push ghcr.io/mgaflip/vswitch-op4s:0.2.0
-docker push ghcr.io/mgaflip/vswitch-op4s:latest
-docker logout ghcr.io
+./pack-vswitch-op4s-container.sh              # -> vswitch-op4s-latest.tgz
 ```
 
-The image carries the `org.opencontainers.image.source` label, so GitHub links the
-package to this repository automatically.
-
-**Offline package.** For machines without internet access, pack the image and the
-scripts into a single file:
-
-```bash
-./pack-vswitch-op4s-container.sh              # image + scripts -> vswitch-op4s-latest.tgz
-./pack-vswitch-op4s-container.sh --no-image   # build files only
-```
-
-On the target machine:
+Copy it to the target machine and start a switch; the image is loaded from the package:
 
 ```bash
 tar xzf vswitch-op4s-latest.tgz && cd vswitch-op4s && ./start-vswitch-op4s-container.sh
