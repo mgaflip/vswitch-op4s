@@ -7,7 +7,7 @@ Each container is a small virtual Tofino switch with a configurable P4 program,
 architecture (Tofino or Tofino 2) and number of ports, and exposes BF Runtime over gRPC
 on port `50052`. You can run several switches at once, each with its own name and IP,
 connect them to each other and to hosts, and configure them remotely with
-[p4-bfrt-manager](https://github.com/mgaflip/p4-bfrt-manager).
+[p4-bfrt-manager](https://github.com/UPM-RSTI/p4-bfrt-manager).
 
 There is nothing to compile: a prebuilt [Docker image](#the-docker-image) is downloaded
 automatically the first time a switch starts.
@@ -60,7 +60,7 @@ echo "vm.nr_hugepages = 320" | sudo tee /etc/sysctl.d/90-vswitch-hugepages.conf
 ### 2. Start your first switch
 
 ```bash
-git clone https://github.com/mgaflip/vswitch-op4s.git && cd vswitch-op4s
+git clone https://github.com/UPM-RSTI/vswitch-op4s.git && cd vswitch-op4s
 
 ./start-vswitch-op4s-container.sh     # start switch sw1 (the first time, the image is downloaded)
 ./list-vswitch-op4s-containers.sh     # list switches and their gRPC address
@@ -260,7 +260,7 @@ sudo nsenter -t "$(docker inspect -f '{{.State.Pid}}' sw2)" -n tcpdump -ni p1
 
 ## Configuring switches with p4-bfrt-manager
 
-[p4-bfrt-manager](https://github.com/mgaflip/p4-bfrt-manager) is a Python library to
+[p4-bfrt-manager](https://github.com/UPM-RSTI/p4-bfrt-manager) is a Python library to
 configure Tofino switches remotely over BF Runtime gRPC, with table entries written as
 JSON. It works with these virtual switches exactly as with hardware ones, from the
 Docker host (or from another machine if the gRPC port is published with `-g`).
@@ -271,7 +271,7 @@ Install it once, in a virtual environment:
 sudo apt install -y python3-venv
 python3 -m venv ~/venvs/bfrt
 source ~/venvs/bfrt/bin/activate
-pip install git+https://github.com/mgaflip/p4-bfrt-manager.git
+pip install git+https://github.com/UPM-RSTI/p4-bfrt-manager.git
 ```
 
 Activate the environment (`source ~/venvs/bfrt/bin/activate`) in each new shell before
@@ -369,7 +369,7 @@ or `-i` (stay attached) to read its messages.
 
 ## The Docker image
 
-All switches run the same image, published as **`ghcr.io/mgaflip/vswitch-op4s`**
+All switches run the same image, published as **`ghcr.io/upm-rsti/vswitch-op4s`**
 (about 200 MB to download, 1 GB on disk). `start-vswitch-op4s-container.sh` and the
 examples download it the first time; locally it is named `vswitch-op4s:<tag>`.
 

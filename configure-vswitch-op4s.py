@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """
 Configure vswitch-op4s switches from JSON files, using p4-bfrt-manager
-(https://github.com/mgaflip/p4-bfrt-manager) over BF Runtime gRPC.
+(https://github.com/UPM-RSTI/p4-bfrt-manager) over BF Runtime gRPC.
 
 Each JSON file holds a list of entries in the p4-bfrt-manager format: P4 table
 entries and fixed-function ones such as $PORT. Entries that already exist are
@@ -21,7 +21,7 @@ Examples:
 
 Install p4-bfrt-manager first, e.g. in a virtual environment:
   python3 -m venv ~/venvs/bfrt && . ~/venvs/bfrt/bin/activate
-  pip install git+https://github.com/mgaflip/p4-bfrt-manager.git
+  pip install git+https://github.com/UPM-RSTI/p4-bfrt-manager.git
 """
 import argparse
 import json
@@ -34,7 +34,7 @@ try:
     from bfrt_manager import BFRTManager, BFRTException
 except ImportError:
     sys.exit("p4-bfrt-manager is not installed (or its virtual environment is not active).\n"
-             "  pip install git+https://github.com/mgaflip/p4-bfrt-manager.git")
+             "  pip install git+https://github.com/UPM-RSTI/p4-bfrt-manager.git")
 
 GRPC_PORT = 50052
 

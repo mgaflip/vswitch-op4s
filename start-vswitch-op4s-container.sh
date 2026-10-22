@@ -20,7 +20,7 @@ IMGDIR=${HOME_DIR}/images
 
 MODEL_DESC="Open P4 Studio Virtual Switch Docker Image"
 MODEL_NAME=vswitch-op4s
-REGISTRY_IMAGE=${REGISTRY_IMAGE:-ghcr.io/mgaflip/vswitch-op4s}   # where prebuilt images are published
+REGISTRY_IMAGE=${REGISTRY_IMAGE:-ghcr.io/upm-rsti/vswitch-op4s}   # where prebuilt images are published
 
 # ---- Defaults (can be overridden by environment variables or options) ----
 MODEL_VERSION=${MODEL_VERSION:-latest}   # image tag

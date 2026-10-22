@@ -13,7 +13,7 @@ open-p4studio P4-16 examples that are already compiled into the image:
 
 | File | Description |
 |---|---|
-| `sw1.json`, `sw2.json` | Configuration of each switch (ports and routes) for [p4-bfrt-manager](https://github.com/mgaflip/p4-bfrt-manager) |
+| `sw1.json`, `sw2.json` | Configuration of each switch (ports and routes) for [p4-bfrt-manager](https://github.com/UPM-RSTI/p4-bfrt-manager) |
 | `sw1.py`, `sw2.py` | The same configuration as bfrt_python scripts (fallback) |
 | `run.sh` | Builds the whole network, loads the rules and pings h1 → h2 |
 | `teardown.sh` | Removes the network |

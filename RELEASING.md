@@ -1,7 +1,7 @@
 # Releasing a new image version
 
 Notes for maintainers on how to build the vswitch-op4s image and publish it on
-GitHub Container Registry as `ghcr.io/mgaflip/vswitch-op4s`.
+GitHub Container Registry as `ghcr.io/upm-rsti/vswitch-op4s`.
 
 Each release is published with two tags: its version number (`0.1.0`, `0.1.1`...) and
 `latest`. Users get `latest` by default; `start-vswitch-op4s-container.sh -v X.Y.Z`
@@ -40,23 +40,26 @@ docker exec sw1 bash -c 'exec 3<>/dev/tcp/127.0.0.1/50052 && echo "gRPC OK"'
 ## 3. Publish it
 
 Create a GitHub token (classic) with the `write:packages` scope at
-<https://github.com/settings/tokens>. Never paste it anywhere except in the
-`docker login` password prompt.
+<https://github.com/settings/tokens>, from an account that can publish packages in the
+UPM-RSTI organization. Never paste it anywhere except in the `docker login` password
+prompt. Image names on ghcr.io are lowercase, so the organization appears as
+`upm-rsti` in them.
 
 ```bash
 VERSION=0.1.1
 
-docker login ghcr.io -u mgaflip            # paste the token when asked for a password
-docker tag vswitch-op4s:latest ghcr.io/mgaflip/vswitch-op4s:$VERSION
-docker tag vswitch-op4s:latest ghcr.io/mgaflip/vswitch-op4s:latest
-docker push ghcr.io/mgaflip/vswitch-op4s:$VERSION
-docker push ghcr.io/mgaflip/vswitch-op4s:latest
+docker login ghcr.io -u <your-github-user>  # paste the token when asked for a password
+docker tag vswitch-op4s:latest ghcr.io/upm-rsti/vswitch-op4s:$VERSION
+docker tag vswitch-op4s:latest ghcr.io/upm-rsti/vswitch-op4s:latest
+docker push ghcr.io/upm-rsti/vswitch-op4s:$VERSION
+docker push ghcr.io/upm-rsti/vswitch-op4s:latest
 docker logout ghcr.io
 ```
 
 The image carries the `org.opencontainers.image.source` label, so GitHub links the
-package to this repository automatically. The package must be public (set once in
-its *Package settings*).
+package to this repository automatically. The package must be public: set it once in
+its *Package settings* (the organization must allow public packages, in its
+*Settings → Packages*).
 
 ## 4. Tag the repository
 

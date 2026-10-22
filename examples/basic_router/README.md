@@ -14,7 +14,7 @@ two hosts in different subnets:
 | File | Description |
 |---|---|
 | `basic_router.p4` | The P4 program: IPv4 longest-prefix-match routing |
-| `sw1.json`, `sw2.json` | Configuration of each switch (ports and routes) for [p4-bfrt-manager](https://github.com/mgaflip/p4-bfrt-manager) |
+| `sw1.json`, `sw2.json` | Configuration of each switch (ports and routes) for [p4-bfrt-manager](https://github.com/UPM-RSTI/p4-bfrt-manager) |
 | `sw1.py`, `sw2.py` | The same configuration as bfrt_python scripts (fallback) |
 | `compile.sh` | Compiles the program with the compiler inside the image |
 | `run.sh` | Builds the whole network, loads the rules and pings h1 → h2 |
@@ -125,7 +125,7 @@ routes in the JSON files. To start a single switch with a compiled program, see
 ## Ports and routes: p4-bfrt-manager or bfrt_python
 
 `run.sh` configures the switches with
-[p4-bfrt-manager](https://github.com/mgaflip/p4-bfrt-manager) and `sw1.json` /
+[p4-bfrt-manager](https://github.com/UPM-RSTI/p4-bfrt-manager) and `sw1.json` /
 `sw2.json` when `BFRT_PYTHON` points to the virtual environment where it is installed,
 from the Docker host over gRPC. Otherwise it runs `sw1.py` / `sw2.py` with `bfrt_python` inside each switch. Both
 contain the same ports and routes. The JSON files can also be applied on their own,
