@@ -22,13 +22,16 @@ two hosts in different subnets:
 
 ## Running it
 
-On a new machine, first follow
-[Installation](../../README.md#installation) in the main README
-(Docker, switch image, hugepages and, optionally, p4-bfrt-manager). This example needs
-about 4 GB of free RAM, 2 cores and 2 × 72 hugepages.
+On a new machine, first prepare it as explained in
+[Getting started](../../README.md#getting-started) in the main README. To load the
+routes with p4-bfrt-manager, also [install it](../../README.md#configuring-switches-with-p4-bfrt-manager)
+(optional). This example runs 2 switches, so the default hugepages are enough; it needs
+about 4 GB of free RAM and 2 cores, plus `sudo` for the links. It uses the names `sw1`,
+`sw2`, `h1` and `h2`: stop any other switch with those names first.
 
 **1. Compile the P4 program.** This creates `build/` with `basic_router.conf`,
-`bf-rt.json` and `pipe/`. Only needed once, or after editing the `.p4`.
+`bf-rt.json` and `pipe/`. Only needed once, or after editing the `.p4`. The first time it
+needs internet access, to install the C preprocessor in a temporary container.
 
 ```bash
 cd examples/basic_router
@@ -49,8 +52,8 @@ BFRT_PYTHON=~/venvs/bfrt/bin/python ./run.sh
 ```
 
 `ttl=62` shows that the reply went through two routers, each decrementing the TTL.
-Without `BFRT_PYTHON`, routes are loaded with `bfrt_python` inside the switches
-(see [below](#ports-and-routes-p4-bfrt-manager-or-bfrt_python)).
+Without `BFRT_PYTHON`, ports and routes are loaded with `bfrt_python` inside the
+switches instead (see [below](#ports-and-routes-p4-bfrt-manager-or-bfrt_python)).
 
 **3. Test by hand.**
 
@@ -71,9 +74,10 @@ docker attach sw1                    # bfshell (detach with Ctrl-P Ctrl-Q)
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `compile.sh` hangs while downloading | Docker MTU larger than the network's | Step 2 of [Installation](../../README.md#installation) |
+| `compile.sh` hangs while downloading | Docker MTU larger than the network's | Docker MTU in [Getting started](../../README.md#1-prepare-the-machine-once) |
 | A switch stops a few seconds after starting | Not enough hugepages | [Hugepages](../../README.md#hugepages); the start script warns about it |
 | `permission denied` when using Docker | User not in the `docker` group | `sudo usermod -aG docker $USER`, then log in again |
+| `A container named sw1 already exists` | Another switch uses that name | Stop it: `../../kill-vswitch-op4s-containers.sh sw1 sw2` |
 | The ping gets no reply | Routes not loaded, or field names differ in your SDE version | Check the output of the routes step in `run.sh` |
 
 ## How the program works
@@ -100,7 +104,7 @@ The egress pipeline does nothing.
 | sw2 port 0 (h2 gateway) | | 00:00:00:00:02:00 |
 | h2 | 10.0.2.1/24, gateway 10.0.2.254 | 00:00:00:00:00:02 |
 
-Routes installed by `sw1.py` and `sw2.py`:
+Routes installed in each switch (`sw1.json` / `sw1.py` and `sw2.json` / `sw2.py`):
 
 | Switch | Destination | Port | New src MAC | New dst MAC |
 |---|---|---|---|---|
@@ -114,27 +118,18 @@ for its gateway (`ip neigh ... nud permanent`).
 
 ## Loading your own program
 
-The same steps work for any TNA program: compile it so that the output directory
-contains `<prog>.conf`, `bf-rt.json` and `pipe/`, then start the switch with:
-
-```bash
-./start-vswitch-op4s-container.sh -p <prog> --p4-build path/to/build
-```
+`compile.sh` and `run.sh` work for any TNA program: change `PROG` in both, and the
+routes in the JSON files. To start a single switch with a compiled program, see
+[Loading your own P4 program](../../README.md#loading-your-own-p4-program).
 
 ## Ports and routes: p4-bfrt-manager or bfrt_python
 
 `run.sh` configures the switches with
 [p4-bfrt-manager](https://github.com/mgaflip/p4-bfrt-manager) and `sw1.json` /
-`sw2.json` when the library is available, from the Docker host over gRPC. Point it to
-the virtual environment where it is installed:
-
-```bash
-BFRT_PYTHON=~/venvs/bfrt/bin/python ./run.sh
-```
-
-Otherwise it runs `sw1.py` / `sw2.py` with `bfrt_python` inside each switch. Both
+`sw2.json` when `BFRT_PYTHON` points to the virtual environment where it is installed,
+from the Docker host over gRPC. Otherwise it runs `sw1.py` / `sw2.py` with `bfrt_python` inside each switch. Both
 contain the same ports and routes. The JSON files can also be applied on their own,
-for example after editing a route:
+for example after editing a route (with the virtual environment active):
 
 ```bash
 ../../configure-vswitch-op4s.py sw1 sw1.json sw2 sw2.json
