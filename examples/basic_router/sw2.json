@@ -1,0 +1,68 @@
+[
+  {
+    "table-name": "$PORT",
+    "match-fields": {
+      "$DEV_PORT": 0
+    },
+    "action-params": {
+      "$SPEED": "BF_SPEED_10G",
+      "$FEC": "BF_FEC_TYP_NONE",
+      "$PORT_ENABLE": true
+    }
+  },
+  {
+    "table-name": "$PORT",
+    "match-fields": {
+      "$DEV_PORT": 1
+    },
+    "action-params": {
+      "$SPEED": "BF_SPEED_10G",
+      "$FEC": "BF_FEC_TYP_NONE",
+      "$PORT_ENABLE": true
+    }
+  },
+  {
+    "table-name": "pipe.Ingress.ipv4_lpm",
+    "match-fields": {
+      "hdr.ipv4.dst_addr": {
+        "value": "10.0.2.0",
+        "prefix_len": 24
+      }
+    },
+    "match-annotations": {
+      "hdr.ipv4.dst_addr": "ipv4"
+    },
+    "action-name": "Ingress.route",
+    "action-params": {
+      "port": 0,
+      "src_mac": "00:00:00:00:02:00",
+      "dst_mac": "00:00:00:00:00:02"
+    },
+    "action-annotations": {
+      "src_mac": "mac",
+      "dst_mac": "mac"
+    }
+  },
+  {
+    "table-name": "pipe.Ingress.ipv4_lpm",
+    "match-fields": {
+      "hdr.ipv4.dst_addr": {
+        "value": "10.0.1.0",
+        "prefix_len": 24
+      }
+    },
+    "match-annotations": {
+      "hdr.ipv4.dst_addr": "ipv4"
+    },
+    "action-name": "Ingress.route",
+    "action-params": {
+      "port": 1,
+      "src_mac": "00:00:00:00:02:01",
+      "dst_mac": "00:00:00:00:01:01"
+    },
+    "action-annotations": {
+      "src_mac": "mac",
+      "dst_mac": "mac"
+    }
+  }
+]

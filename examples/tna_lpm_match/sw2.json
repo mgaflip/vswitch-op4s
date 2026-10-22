@@ -1,0 +1,70 @@
+[
+  {
+    "table-name": "$PORT",
+    "match-fields": {
+      "$DEV_PORT": 0
+    },
+    "action-params": {
+      "$SPEED": "BF_SPEED_10G",
+      "$FEC": "BF_FEC_TYP_NONE",
+      "$PORT_ENABLE": true
+    }
+  },
+  {
+    "table-name": "$PORT",
+    "match-fields": {
+      "$DEV_PORT": 1
+    },
+    "action-params": {
+      "$SPEED": "BF_SPEED_10G",
+      "$FEC": "BF_FEC_TYP_NONE",
+      "$PORT_ENABLE": true
+    }
+  },
+  {
+    "table-name": "pipe.SwitchIngress.alpm_forward",
+    "match-fields": {
+      "vrf": 0,
+      "hdr.ipv4.dst_addr": {
+        "value": "10.0.2.0",
+        "prefix_len": 24
+      }
+    },
+    "match-annotations": {
+      "hdr.ipv4.dst_addr": "ipv4"
+    },
+    "action-name": "SwitchIngress.route",
+    "action-params": {
+      "srcMac": "00:00:00:00:02:00",
+      "dstMac": "00:00:00:00:00:02",
+      "dst_port": 0
+    },
+    "action-annotations": {
+      "srcMac": "mac",
+      "dstMac": "mac"
+    }
+  },
+  {
+    "table-name": "pipe.SwitchIngress.alpm_forward",
+    "match-fields": {
+      "vrf": 0,
+      "hdr.ipv4.dst_addr": {
+        "value": "10.0.1.0",
+        "prefix_len": 24
+      }
+    },
+    "match-annotations": {
+      "hdr.ipv4.dst_addr": "ipv4"
+    },
+    "action-name": "SwitchIngress.route",
+    "action-params": {
+      "srcMac": "00:00:00:00:02:01",
+      "dstMac": "00:00:00:00:01:01",
+      "dst_port": 1
+    },
+    "action-annotations": {
+      "srcMac": "mac",
+      "dstMac": "mac"
+    }
+  }
+]

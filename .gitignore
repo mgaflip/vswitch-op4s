@@ -13,3 +13,10 @@ vswitch-op4s/
 # Editor files
 *.swp
 *~
+
+# Compiled P4 programs
+examples/*/build/
+
+# Python
+__pycache__/
+*.pyc

@@ -35,6 +35,8 @@ SW_NET=${SW_NET:-}                       # docker network (empty = default bridg
 SW_IP=${SW_IP:-}                         # fixed IP in SW_NET (empty = automatic)
 INTERACTIVE=${INTERACTIVE:-0}            # 1 = stay attached to the bfshell prompt
 KEEP=${KEEP:-0}                          # 1 = keep the container after it stops (debugging)
+HUGEPAGES_PER_SWITCH=${HUGEPAGES_PER_SWITCH:-72}  # 2 MB hugepages used by each bf_switchd (measured)
+P4_BUILD=${P4_BUILD:-}                   # host dir with a compiled program (see --p4-build)
 
 usage() {
     cat << EOF
@@ -45,6 +47,9 @@ Options:
       --prefix PREFIX      Prefix for automatic names (default: ${SW_PREFIX})
   -p, --prog PROG          P4 program                (default: ${P4_PROG})
   -a, --arch ARCH          tofino | tofino2          (default: ${P4_ARCH})
+      --p4-build DIR       Load your own compiled program from DIR (on the host).
+                           DIR must contain <prog>.conf, bf-rt.json and pipe/;
+                           use --prog to give the program name.
       --ports "P1 P2 ..."  Switch device ports       (default: "${DEV_PORTS}")
       --cpu-port N         CPU port device number    (default: ${CPU_PORT})
       --no-cpu-veth        Do not create the CPU port veth pair
@@ -70,6 +75,7 @@ while [ $# -gt 0 ]; do
         --prefix)         SW_PREFIX="$2"; shift 2 ;;
         -p|--prog)        P4_PROG="$2"; shift 2 ;;
         -a|--arch)        P4_ARCH="$2"; shift 2 ;;
+        --p4-build)       P4_BUILD="$2"; shift 2 ;;
         --ports)          DEV_PORTS="$2"; shift 2 ;;
         --cpu-port)       CPU_PORT="$2"; shift 2 ;;
         --no-cpu-veth)    CPU_VETH=0; shift ;;
@@ -123,6 +129,41 @@ else
     SW_NAME="${SW_PREFIX}${n}"
 fi
 
+# ---- Hugepages: bf_switchd needs free hugepages on the host for its DMA pools ----
+# All switches share the host's hugepages. If there are not enough, bf_switchd fails
+# with "bf_sys_dma_pool_create failed" a few seconds after starting.
+HP_FREE=$(awk '/^HugePages_Free:/ { print $2 }' /proc/meminfo)
+HP_TOTAL=$(awk '/^HugePages_Total:/ { print $2 }' /proc/meminfo)
+# On a host with no hugepages yet, the SDE sets up its default (196) on first start
+if [ "${HP_TOTAL:-0}" -gt 0 ] && [ "${HP_FREE:-0}" -lt "$HUGEPAGES_PER_SWITCH" ]; then
+    RUNNING=$(docker ps --format '{{.Image}}' | grep -c "^${MODEL_NAME}" || true)
+    cat >&2 << EOF
+ERROR: not enough free hugepages for another switch
+  free: ${HP_FREE}  total: ${HP_TOTAL}  needed per switch: ${HUGEPAGES_PER_SWITCH}  running switches: ${RUNNING}
+
+To run N switches, the host needs about N x ${HUGEPAGES_PER_SWITCH} hugepages. For example, for 8:
+  sudo sysctl -w vm.nr_hugepages=640
+  echo "vm.nr_hugepages = 640" | sudo tee /etc/sysctl.d/90-vswitch-hugepages.conf
+EOF
+    exit 1
+fi
+
+# ---- Own P4 program: mount the build where the SDE expects installed programs ----
+# The SDE looks for share/p4/targets/<arch>/<prog>.conf and share/<arch>pd/<prog>/,
+# so mounting the build there lets run_tofino_model.sh / run_switchd.sh use -p <prog>.
+MOUNT_ARGS=()
+if [ -n "$P4_BUILD" ]; then
+    [ -d "$P4_BUILD" ] || { echo "--p4-build: directory $P4_BUILD not found" >&2; exit 1; }
+    P4_BUILD=$(cd "$P4_BUILD" && pwd)
+    [ -f "$P4_BUILD/$P4_PROG.conf" ] || {
+        echo "--p4-build: $P4_BUILD/$P4_PROG.conf not found (is --prog correct?)" >&2; exit 1; }
+    SDE_SHARE=/home/open-p4studio/install/share
+    MOUNT_ARGS=(
+        -v "$P4_BUILD:$SDE_SHARE/${P4_ARCH}pd/$P4_PROG:ro"
+        -v "$P4_BUILD/$P4_PROG.conf:$SDE_SHARE/p4/targets/$P4_ARCH/$P4_PROG.conf:ro"
+    )
+fi
+
 # ---- Network: every container has its own IP, so all of them can use 50052 ----
 NET_ARGS=()
 if [ -n "$SW_NET" ]; then
@@ -166,6 +207,7 @@ docker run "${RUN_MODE[@]}" "${RM_ARGS[@]}" --privileged \
     --name "${SW_NAME}" \
     --hostname "${SW_NAME}" \
     "${NET_ARGS[@]}" \
+    "${MOUNT_ARGS[@]}" \
     "${PORT_ARGS[@]}" \
     -e P4_PROG="${P4_PROG}" \
     -e P4_ARCH="${P4_ARCH}" \

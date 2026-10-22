@@ -26,7 +26,7 @@ DKDIR=docker
 IMGDIR=images
 
 # Scripts for the end user (run time) and for rebuilding the image
-RUN_SCRIPTS="start-vswitch-op4s-container.sh list-vswitch-op4s-containers.sh kill-vswitch-op4s-containers.sh"
+RUN_SCRIPTS="start-vswitch-op4s-container.sh list-vswitch-op4s-containers.sh kill-vswitch-op4s-containers.sh link-vswitch-op4s.sh configure-vswitch-op4s.py"
 BUILD_SCRIPTS="build-vswitch-op4s-container.sh"
 DOCS="README.md"
 
@@ -76,6 +76,12 @@ for f in "$DKDIR"/* "$DKDIR"/.dockerignore; do
     esac
     cp -rp "$f" "$PKG/$DKDIR/"
 done
+
+# ---- Examples (without compiled output) ----
+if [ -d examples ]; then
+    cp -rp examples "$PKG/"
+    find "$PKG/examples" -type d -name build -prune -exec rm -rf {} +
+fi
 
 # ---- Optional helper scripts used by the build script ----
 for d in op4s-u24.04 old-op4s-u24.04; do
