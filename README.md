@@ -12,61 +12,33 @@ connect them to each other and to hosts, and configure them remotely with
 A prebuilt [Docker image](#the-docker-image) is published on GitHub Container Registry,
 so there is nothing to compile: the start script pulls it the first time.
 
-## The Docker image
+## Quick start
 
-All switches run the same image, published as **`ghcr.io/mgaflip/vswitch-op4s`**
-(about 200 MB to download, 1 GB on disk).
+On a Linux machine with Docker:
 
-| Tag | Meaning |
-|---|---|
-| `latest` | The most recent version (default) |
-| `0.1.0`, `0.1.1`... | A fixed version, for reproducible setups |
+```bash
+git clone https://github.com/mgaflip/vswitch-op4s.git && cd vswitch-op4s
 
-**What it contains**
+./start-vswitch-op4s-container.sh     # start switch sw1 (the first time, the image is downloaded)
+./list-vswitch-op4s-containers.sh     # list switches and their gRPC address
+docker attach sw1                     # bfshell prompt (detach with Ctrl-P Ctrl-Q)
+./kill-vswitch-op4s-containers.sh     # stop all switches
+```
 
-- `tofino-model` (the Tofino chip simulator) and `bf_switchd` (the SDE driver), with
-  the `bfshell` / `bfrt_python` console and the BF Runtime gRPC server on port `50052`.
-- The open-p4studio P4-16 example programs, compiled for Tofino and Tofino 2
-  (`tna_counter`, `tna_lpm_match`, ...), ready to load with `-p <program>`.
-- The P4 compiler, used by the examples to [compile your own programs](#loading-your-own-p4-program).
-- The entrypoint `start-tofino-switch.sh`, which sets up the switch ports and starts
-  the model and the driver.
-- The licenses of open-p4studio (see [License](#license)).
+By default a switch runs the `tna_counter` example on Tofino, with ports 0 to 3. For a
+new machine, cloud VMs or more than two switches, see [Installation](#installation).
 
-It is built from open-p4studio with a minimal profile (no kernel modules, no SAI) on
-Ubuntu 24.04.
+## Installation
 
-**How to get it**
+**Requirements**
 
-| Way | When | How |
-|---|---|---|
-| Automatic | Usual case | `start-vswitch-op4s-container.sh` and the examples pull it the first time |
-| Manual | To download it in advance, or a fixed version | `docker pull ghcr.io/mgaflip/vswitch-op4s:latest` and `docker tag ghcr.io/mgaflip/vswitch-op4s:latest vswitch-op4s:latest` |
-| Offline package | Machines without internet access | See [Installing without internet access](#installing-without-internet-access) |
-| Build it | To change how the SDE is built | `./build-vswitch-op4s-container.sh` (several hours, 16 GB of RAM, 30–40 GB of disk) |
+- Linux x86_64 with Docker, and `sudo`.
+- Internet access the first time, to download the switch image (about 200 MB).
+  Without internet, see [Installing without internet access](#installing-without-internet-access).
+- Per running switch: about **520 MB of RAM**, **half a CPU core** and **72 hugepages**.
 
-Locally the image is named `vswitch-op4s:<tag>`. To use a fixed version, pull and tag
-it as above with that version and start switches with `-v <version>`.
-How new versions are built and published is described in [RELEASING.md](RELEASING.md).
-
-## Requirements
-
-See [Setting up a new machine](#setting-up-a-new-machine) for step-by-step instructions.
-
-- Linux x86_64 host with Docker.
-- Internet access to pull the [image](#the-docker-image), or an offline package.
-- To **run** switches: containers need `--privileged` (or `NET_ADMIN`) to create
-  the veth interfaces. The start script already does this.
-- Optional, to configure switches from JSON files:
-  [p4-bfrt-manager](https://github.com/mgaflip/p4-bfrt-manager) (see
-  [Configuring switches](#configuring-switches-with-p4-bfrt-manager)).
-- Each running switch uses about **520 MB of RAM**, **half a CPU core** and
-  **72 hugepages** (2 MB each, 144 MB) on the host. See [Hugepages](#hugepages).
-
-## Setting up a new machine
-
-These steps prepare a machine to run switches and the [examples](examples). They
-assume Ubuntu 24.04 on x86_64, `sudo` and internet access.
+There is nothing to compile: the switch image is downloaded automatically the first time
+a switch starts (see [The Docker image](#the-docker-image)).
 
 **1. System tools.** Skip `docker.io` if Docker is already installed (for example, as a snap).
 
@@ -77,9 +49,9 @@ sudo usermod -aG docker $USER      # then log out and back in
 docker run --rm hello-world        # check that Docker works
 ```
 
-**2. Docker MTU on cloud VMs (OpenStack, etc.).** If the main network interface has an
-MTU below 1500 (`ip link | grep mtu`), give Docker the same value. Otherwise, containers
-and builds hang when downloading.
+**2. Docker MTU (only on cloud VMs such as OpenStack).** If the main network interface
+has an MTU below 1500 (`ip link | grep mtu`), give Docker the same value. Otherwise,
+downloads from containers and builds hang.
 
 ```bash
 # Docker installed with apt
@@ -100,103 +72,25 @@ git clone https://github.com/mgaflip/vswitch-op4s.git
 cd vswitch-op4s
 ```
 
-**4. Get the switch image (optional).** The start script and the examples pull it the
-first time. To download it in advance:
+**4. Hugepages.** Each switch needs 72. The default (196) is enough for 2 switches; for
+more, reserve 72 per switch, plus any switch already running on the host (see
+[Hugepages](#hugepages)). For example, for 4 switches:
 
 ```bash
-docker pull ghcr.io/mgaflip/vswitch-op4s:latest
-docker tag ghcr.io/mgaflip/vswitch-op4s:latest vswitch-op4s:latest
+sudo sysctl -w vm.nr_hugepages=320
+echo "vm.nr_hugepages = 320" | sudo tee /etc/sysctl.d/90-vswitch-hugepages.conf
 ```
 
-See [The Docker image](#the-docker-image) for fixed versions, offline installation and
-building it yourself.
-
-**5. Hugepages.** Reserve 72 per switch you will run, plus any switch already running
-on the host (see [Hugepages](#hugepages)). For 2 switches:
-
-```bash
-sudo sysctl -w vm.nr_hugepages=196
-echo "vm.nr_hugepages = 196" | sudo tee /etc/sysctl.d/90-vswitch-hugepages.conf
-```
-
-**6. p4-bfrt-manager (optional).** Used by `configure-vswitch-op4s.py` and the examples
-to configure the switches over gRPC:
+**5. p4-bfrt-manager (optional).** To configure switches from JSON files and in the
+examples (see [Configuring switches](#configuring-switches-with-p4-bfrt-manager)):
 
 ```bash
 python3 -m venv ~/venvs/bfrt
 ~/venvs/bfrt/bin/pip install git+https://github.com/mgaflip/p4-bfrt-manager.git
 ```
 
-The machine is now ready: start a switch with `./start-vswitch-op4s-container.sh`, or
-run one of the [examples](#example-network).
-
-## Hugepages
-
-`bf_switchd` allocates its DMA memory pools from the host's hugepages, which are shared
-by all switch containers. Each switch needs **72 hugepages** (2 MB each).
-
-On first start the SDE sets the host to 196 hugepages, which is only enough for
-**2 switches**. A third switch starts but `bf_switchd` fails a few seconds later with
-`bf_sys_dma_pool_create failed`, and the container stops.
-
-To run N switches, reserve about N × 72 hugepages (plus some margin). For 8 switches:
-
-```bash
-sudo sysctl -w vm.nr_hugepages=640
-echo "vm.nr_hugepages = 640" | sudo tee /etc/sysctl.d/90-vswitch-hugepages.conf
-grep -i hugepages /proc/meminfo     # check HugePages_Total and HugePages_Free
-```
-
-The SDE scripts only raise this value when it is lower than 196, so containers will not
-reduce it. Reserved hugepages are not available to other programs, even when no switch
-is running.
-
-`start-vswitch-op4s-container.sh` checks that at least 72 hugepages are free before
-starting a switch. When starting several switches in a loop, wait a few seconds between
-them (`sleep 10`) so each one has reserved its hugepages before the next check.
-
-## Repository layout
-
-```
-.
-├── build-vswitch-op4s-container.sh   # build the Docker image
-├── start-vswitch-op4s-container.sh   # start a switch
-├── list-vswitch-op4s-containers.sh   # list running switches
-├── kill-vswitch-op4s-containers.sh   # stop switches
-├── link-vswitch-op4s.sh              # connect switch ports (and hosts)
-├── configure-vswitch-op4s.py         # configure switches from JSON (p4-bfrt-manager)
-├── pack-vswitch-op4s-container.sh    # create an offline package (image + scripts)
-├── RELEASING.md                      # how to build and publish new image versions
-├── examples/
-│   ├── basic_router/                 # 2 switches + 2 hosts, own P4 router program
-│   └── tna_lpm_match/                # same network with a precompiled SDE example
-└── docker/
-    ├── Dockerfile.vswitch-op4s       # multi-stage build (builder + slim runtime)
-    ├── vswitch-op4s.yaml             # p4studio build profile
-    ├── start-tofino-switch.sh        # container entrypoint
-    └── .dockerignore
-```
-
-## Quick start
-
-```bash
-git clone https://github.com/mgaflip/vswitch-op4s.git && cd vswitch-op4s
-
-# 1. Start a switch with the defaults: Tofino, tna_counter, ports 0-3
-#    (the first time, the image is pulled from ghcr.io/mgaflip/vswitch-op4s)
-./start-vswitch-op4s-container.sh
-
-# 2. List switches
-./list-vswitch-op4s-containers.sh
-
-# 3. Open the bfshell prompt (detach with Ctrl-P Ctrl-Q)
-docker attach sw1
-
-# 4. Stop all switches
-./kill-vswitch-op4s-containers.sh
-```
-
-More than 2 switches need more hugepages: see [Hugepages](#hugepages).
+The machine is ready: start a switch with `./start-vswitch-op4s-container.sh`, or run
+one of the [examples](#example-network).
 
 ## Starting switches
 
@@ -249,6 +143,109 @@ own program, compile it so that the output directory contains `<prog>.conf`,
 The directory is mounted read-only where the SDE expects installed programs. See
 [`examples/basic_router`](examples/basic_router) for a complete example, including how
 to compile with the compiler inside the image.
+
+## Connecting switches and hosts
+
+`link-vswitch-op4s.sh` connects two endpoints with a virtual cable, so you can build
+topologies of switches and hosts. Switches do not need to be restarted.
+
+### Usage
+
+```bash
+./link-vswitch-op4s.sh ENDPOINT_A ENDPOINT_B       # create a link
+./link-vswitch-op4s.sh -d ENDPOINT_A ENDPOINT_B    # remove it
+```
+
+An endpoint can be:
+
+| Endpoint | Meaning | Example |
+|---|---|---|
+| `SWITCH:PORT` | A device port of a vswitch-op4s container. The port must be one of the `--ports` the switch was started with. | `sw1:0` |
+| `CONTAINER:IFACE` | A new interface created in any other container (for example, a host). | `h1:eth1` |
+| `CONTAINER:IFACE:IP/PREFIX` | Same, and the IP address is assigned to the new interface. | `h1:eth1:10.0.0.1/24` |
+
+The script runs `ip`, `tc` and `nsenter` on the Docker host, so it needs `sudo`.
+
+### Example: h1 -- sw1 -- sw2 -- h2
+
+```bash
+# Two switches
+./start-vswitch-op4s-container.sh                 # sw1
+./start-vswitch-op4s-container.sh                 # sw2
+
+# Two hosts with no network other than the links we create
+docker run -dit --name h1 --network none --cap-add NET_ADMIN alpine
+docker run -dit --name h2 --network none --cap-add NET_ADMIN alpine
+
+# Cables
+./link-vswitch-op4s.sh h1:eth1:10.0.0.1/24 sw1:0
+./link-vswitch-op4s.sh sw1:1 sw2:0
+./link-vswitch-op4s.sh sw2:1 h2:eth1:10.0.0.2/24
+
+# Once the switches forward traffic (see below)
+docker exec h1 ping 10.0.0.2
+
+# Remove a link
+./link-vswitch-op4s.sh -d sw1:1 sw2:0
+```
+
+### How it works
+
+1. A veth pair is created on the Docker host and each end is moved into the network
+   namespace of one container (found through the container PID).
+2. In a host container, the end is renamed to the interface name you gave
+   (`eth1`) and gets the IP address, if any.
+3. In a switch container, the end is renamed to `p<PORT>` (for example `p1`). The script
+   reads `/var/log/tofino/ports.json` to find the traffic side of that port
+   (`veth1`, `veth3`, ...) and adds two `tc` rules that redirect every packet between
+   `p<PORT>` and that veth, in both directions.
+
+Packet path for `sw1:1 <-> sw2:0`:
+
+```
+sw1: tofino-model -> veth2 -> veth3 -> (tc) -> p1 ====cable==== p0 -> (tc) -> veth1 -> veth0 -> tofino-model :sw2
+```
+
+### Checking a link
+
+```bash
+docker exec sw1 ip link show p1                      # cable end exists and is UP
+docker exec sw1 tc filter show dev veth3 ingress     # redirect rule in place
+docker exec -it sw2 tcpdump -ni p0                   # watch packets arriving at sw2
+```
+
+### Notes
+
+- **Links are not persistent.** They disappear when either container stops; recreate
+  them after restarting a switch or host.
+- **A port can only have one link.** Linking a port that is already linked fails with
+  "interface pN already exists". Remove the old link first with `-d`.
+- **A link does not mean forwarding.** Packets only cross a switch if its ports are
+  enabled in `bf_switchd` and the loaded P4 program (with its table entries) forwards them.
+- You can still capture or inject traffic on the traffic veth of a linked port
+  (`veth3` in the example above) for debugging.
+
+## Ports and veth interfaces
+
+Inside each container, every device port in `--ports` gets its own veth pair:
+
+| Device port | Model side | Traffic side |
+|---|---|---|
+| 1st port | `veth0` | `veth1` |
+| 2nd port | `veth2` | `veth3` |
+| ... | ... | ... |
+| CPU port | `veth250` | `veth251` |
+
+`tofino-model` attaches to the even interface; send or capture traffic on the odd one
+(for example `docker exec -it sw1 tcpdump -i veth1`). The mapping is written to
+`/var/log/tofino/ports.json` inside the container and passed to the model.
+
+On Tofino 1, device ports are numbered `pipe × 128 + local port` (pipe 0 starts at 0,
+pipe 1 at 128, and so on). Tofino 2 uses a different numbering: set `--ports` and
+`--cpu-port` to the values your P4 program expects.
+
+Ports must also be added and enabled from the control plane (BF Runtime or bfshell)
+before they forward traffic.
 
 ## Configuring switches with p4-bfrt-manager
 
@@ -337,109 +334,6 @@ cd examples/tna_lpm_match
 ./run.sh
 ```
 
-## Ports and veth interfaces
-
-Inside each container, every device port in `--ports` gets its own veth pair:
-
-| Device port | Model side | Traffic side |
-|---|---|---|
-| 1st port | `veth0` | `veth1` |
-| 2nd port | `veth2` | `veth3` |
-| ... | ... | ... |
-| CPU port | `veth250` | `veth251` |
-
-`tofino-model` attaches to the even interface; send or capture traffic on the odd one
-(for example `docker exec -it sw1 tcpdump -i veth1`). The mapping is written to
-`/var/log/tofino/ports.json` inside the container and passed to the model.
-
-On Tofino 1, device ports are numbered `pipe × 128 + local port` (pipe 0 starts at 0,
-pipe 1 at 128, and so on). Tofino 2 uses a different numbering: set `--ports` and
-`--cpu-port` to the values your P4 program expects.
-
-Ports must also be added and enabled from the control plane (BF Runtime or bfshell)
-before they forward traffic.
-
-## Connecting switches and hosts
-
-`link-vswitch-op4s.sh` connects two endpoints with a virtual cable, so you can build
-topologies of switches and hosts. Switches do not need to be restarted.
-
-### Usage
-
-```bash
-./link-vswitch-op4s.sh ENDPOINT_A ENDPOINT_B       # create a link
-./link-vswitch-op4s.sh -d ENDPOINT_A ENDPOINT_B    # remove it
-```
-
-An endpoint can be:
-
-| Endpoint | Meaning | Example |
-|---|---|---|
-| `SWITCH:PORT` | A device port of a vswitch-op4s container. The port must be one of the `--ports` the switch was started with. | `sw1:0` |
-| `CONTAINER:IFACE` | A new interface created in any other container (for example, a host). | `h1:eth1` |
-| `CONTAINER:IFACE:IP/PREFIX` | Same, and the IP address is assigned to the new interface. | `h1:eth1:10.0.0.1/24` |
-
-The script runs `ip`, `tc` and `nsenter` on the Docker host, so it needs `sudo`.
-
-### Example: h1 -- sw1 -- sw2 -- h2
-
-```bash
-# Two switches
-./start-vswitch-op4s-container.sh                 # sw1
-./start-vswitch-op4s-container.sh                 # sw2
-
-# Two hosts with no network other than the links we create
-docker run -dit --name h1 --network none --cap-add NET_ADMIN alpine
-docker run -dit --name h2 --network none --cap-add NET_ADMIN alpine
-
-# Cables
-./link-vswitch-op4s.sh h1:eth1:10.0.0.1/24 sw1:0
-./link-vswitch-op4s.sh sw1:1 sw2:0
-./link-vswitch-op4s.sh sw2:1 h2:eth1:10.0.0.2/24
-
-# Once the switches forward traffic (see below)
-docker exec h1 ping 10.0.0.2
-
-# Remove a link
-./link-vswitch-op4s.sh -d sw1:1 sw2:0
-```
-
-### How it works
-
-1. A veth pair is created on the Docker host and each end is moved into the network
-   namespace of one container (found through the container PID).
-2. In a host container, the end is renamed to the interface name you gave
-   (`eth1`) and gets the IP address, if any.
-3. In a switch container, the end is renamed to `p<PORT>` (for example `p1`). The script
-   reads `/var/log/tofino/ports.json` to find the traffic side of that port
-   (`veth1`, `veth3`, ...) and adds two `tc` rules that redirect every packet between
-   `p<PORT>` and that veth, in both directions.
-
-Packet path for `sw1:1 <-> sw2:0`:
-
-```
-sw1: tofino-model -> veth2 -> veth3 -> (tc) -> p1 ====cable==== p0 -> (tc) -> veth1 -> veth0 -> tofino-model :sw2
-```
-
-### Checking a link
-
-```bash
-docker exec sw1 ip link show p1                      # cable end exists and is UP
-docker exec sw1 tc filter show dev veth3 ingress     # redirect rule in place
-docker exec -it sw2 tcpdump -ni p0                   # watch packets arriving at sw2
-```
-
-### Notes
-
-- **Links are not persistent.** They disappear when either container stops; recreate
-  them after restarting a switch or host.
-- **A port can only have one link.** Linking a port that is already linked fails with
-  "interface pN already exists". Remove the old link first with `-d`.
-- **A link does not mean forwarding.** Packets only cross a switch if its ports are
-  enabled in `bf_switchd` and the loaded P4 program (with its table entries) forwards them.
-- You can still capture or inject traffic on the traffic veth of a linked port
-  (`veth3` in the example above) for debugging.
-
 ## Logs
 
 ```bash
@@ -447,10 +341,38 @@ docker exec sw1 tail -f /var/log/tofino/tofino_model.log
 docker exec -it sw1 bash
 ```
 
-## Installing without internet access
+## The Docker image
 
-To use the switches on a machine that cannot pull the image, create a package on a
-machine that has it, with the image and the scripts in a single file:
+All switches run the same image, published as **`ghcr.io/mgaflip/vswitch-op4s`**
+(about 200 MB to download, 1 GB on disk). `start-vswitch-op4s-container.sh` and the
+examples download it the first time; locally it is named `vswitch-op4s:<tag>`.
+
+**What it contains**
+
+- `tofino-model` (the Tofino chip simulator) and `bf_switchd` (the SDE driver), with
+  the `bfshell` / `bfrt_python` console and the BF Runtime gRPC server on port `50052`.
+- The open-p4studio P4-16 example programs, compiled for Tofino and Tofino 2
+  (`tna_counter`, `tna_lpm_match`, ...), ready to load with `-p <program>`.
+- The P4 compiler, used by the examples to [compile your own programs](#loading-your-own-p4-program).
+- The entrypoint `start-tofino-switch.sh`, which sets up the switch ports and starts
+  the model and the driver.
+- The licenses of open-p4studio (see [License](#license)).
+
+It is built from open-p4studio with a minimal profile (no kernel modules, no SAI) on
+Ubuntu 24.04.
+
+**Versions.** `latest` is the most recent version and the default. Each version also
+has a fixed tag (`0.1.0`, ...). To use one, download it and start switches with `-v`:
+
+```bash
+docker pull ghcr.io/mgaflip/vswitch-op4s:0.1.0
+docker tag ghcr.io/mgaflip/vswitch-op4s:0.1.0 vswitch-op4s:0.1.0
+./start-vswitch-op4s-container.sh -v 0.1.0
+```
+
+### Installing without internet access
+
+On a machine that has the image, pack it with the scripts into a single file:
 
 ```bash
 ./pack-vswitch-op4s-container.sh              # -> vswitch-op4s-latest.tgz
@@ -460,6 +382,65 @@ Copy it to the target machine and start a switch; the image is loaded from the p
 
 ```bash
 tar xzf vswitch-op4s-latest.tgz && cd vswitch-op4s && ./start-vswitch-op4s-container.sh
+```
+
+### Building the image
+
+Only needed to change how the SDE is built (several hours, 16 GB+ of RAM, 30–40 GB of
+free disk, Docker with BuildKit):
+
+```bash
+./build-vswitch-op4s-container.sh
+```
+
+How new versions are built, tested and published is described in
+[RELEASING.md](RELEASING.md).
+
+## Hugepages
+
+`bf_switchd` allocates its DMA memory pools from the host's hugepages, which are shared
+by all switch containers. Each switch needs **72 hugepages** (2 MB each).
+
+On first start the SDE sets the host to 196 hugepages, which is only enough for
+**2 switches**. A third switch starts but `bf_switchd` fails a few seconds later with
+`bf_sys_dma_pool_create failed`, and the container stops.
+
+To run N switches, reserve about N × 72 hugepages (plus some margin). For 8 switches:
+
+```bash
+sudo sysctl -w vm.nr_hugepages=640
+echo "vm.nr_hugepages = 640" | sudo tee /etc/sysctl.d/90-vswitch-hugepages.conf
+grep -i hugepages /proc/meminfo     # check HugePages_Total and HugePages_Free
+```
+
+The SDE scripts only raise this value when it is lower than 196, so containers will not
+reduce it. Reserved hugepages are not available to other programs, even when no switch
+is running.
+
+`start-vswitch-op4s-container.sh` checks that at least 72 hugepages are free before
+starting a switch. When starting several switches in a loop, wait a few seconds between
+them (`sleep 10`) so each one has reserved its hugepages before the next check.
+
+## Repository layout
+
+```
+.
+├── build-vswitch-op4s-container.sh   # build the Docker image
+├── start-vswitch-op4s-container.sh   # start a switch
+├── list-vswitch-op4s-containers.sh   # list running switches
+├── kill-vswitch-op4s-containers.sh   # stop switches
+├── link-vswitch-op4s.sh              # connect switch ports (and hosts)
+├── configure-vswitch-op4s.py         # configure switches from JSON (p4-bfrt-manager)
+├── pack-vswitch-op4s-container.sh    # create an offline package (image + scripts)
+├── RELEASING.md                      # how to build and publish new image versions
+├── examples/
+│   ├── basic_router/                 # 2 switches + 2 hosts, own P4 router program
+│   └── tna_lpm_match/                # same network with a precompiled SDE example
+└── docker/
+    ├── Dockerfile.vswitch-op4s       # multi-stage build (builder + slim runtime)
+    ├── vswitch-op4s.yaml             # p4studio build profile
+    ├── start-tofino-switch.sh        # container entrypoint
+    └── .dockerignore
 ```
 
 ## Limitations and roadmap

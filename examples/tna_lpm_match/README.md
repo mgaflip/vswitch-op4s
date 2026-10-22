@@ -10,7 +10,7 @@ open-p4studio P4-16 examples that are already compiled into the image:
 ```
 
 On a new machine, first follow
-[Setting up a new machine](../../README.md#setting-up-a-new-machine) in the main README.
+[Installation](../../README.md#installation) in the main README.
 No compilation is needed:
 
 ```bash

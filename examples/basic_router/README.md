@@ -23,7 +23,7 @@ two hosts in different subnets:
 ## Running it
 
 On a new machine, first follow
-[Setting up a new machine](../../README.md#setting-up-a-new-machine) in the main README
+[Installation](../../README.md#installation) in the main README
 (Docker, switch image, hugepages and, optionally, p4-bfrt-manager). This example needs
 about 4 GB of free RAM, 2 cores and 2 × 72 hugepages.
 
@@ -71,7 +71,7 @@ docker attach sw1                    # bfshell (detach with Ctrl-P Ctrl-Q)
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `compile.sh` hangs while downloading | Docker MTU larger than the network's | Step 2 of [Setting up a new machine](../../README.md#setting-up-a-new-machine) |
+| `compile.sh` hangs while downloading | Docker MTU larger than the network's | Step 2 of [Installation](../../README.md#installation) |
 | A switch stops a few seconds after starting | Not enough hugepages | [Hugepages](../../README.md#hugepages); the start script warns about it |
 | `permission denied` when using Docker | User not in the `docker` group | `sudo usermod -aG docker $USER`, then log in again |
 | The ping gets no reply | Routes not loaded, or field names differ in your SDE version | Check the output of the routes step in `run.sh` |
