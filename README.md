@@ -9,21 +9,52 @@ on port `50052`. You can run several switches at once, each with its own name an
 connect them to each other and to hosts, and configure them remotely with
 [p4-bfrt-manager](https://github.com/mgaflip/p4-bfrt-manager).
 
-A prebuilt image is published on GitHub Container Registry, so there is nothing to
-compile: the start script pulls it the first time.
+A prebuilt [Docker image](#the-docker-image) is published on GitHub Container Registry,
+so there is nothing to compile: the start script pulls it the first time.
 
-```bash
-docker pull ghcr.io/mgaflip/vswitch-op4s:latest
-```
+## The Docker image
+
+All switches run the same image, published as **`ghcr.io/mgaflip/vswitch-op4s`**
+(about 200 MB to download, 1 GB on disk).
+
+| Tag | Meaning |
+|---|---|
+| `latest` | The most recent version (default) |
+| `0.1.0`, `0.1.1`... | A fixed version, for reproducible setups |
+
+**What it contains**
+
+- `tofino-model` (the Tofino chip simulator) and `bf_switchd` (the SDE driver), with
+  the `bfshell` / `bfrt_python` console and the BF Runtime gRPC server on port `50052`.
+- The open-p4studio P4-16 example programs, compiled for Tofino and Tofino 2
+  (`tna_counter`, `tna_lpm_match`, ...), ready to load with `-p <program>`.
+- The P4 compiler, used by the examples to [compile your own programs](#loading-your-own-p4-program).
+- The entrypoint `start-tofino-switch.sh`, which sets up the switch ports and starts
+  the model and the driver.
+- The licenses of open-p4studio (see [License](#license)).
+
+It is built from open-p4studio with a minimal profile (no kernel modules, no SAI) on
+Ubuntu 24.04.
+
+**How to get it**
+
+| Way | When | How |
+|---|---|---|
+| Automatic | Usual case | `start-vswitch-op4s-container.sh` and the examples pull it the first time |
+| Manual | To download it in advance, or a fixed version | `docker pull ghcr.io/mgaflip/vswitch-op4s:latest` and `docker tag ghcr.io/mgaflip/vswitch-op4s:latest vswitch-op4s:latest` |
+| Offline package | Machines without internet access | See [Installing without internet access](#installing-without-internet-access) |
+| Build it | To change how the SDE is built | `./build-vswitch-op4s-container.sh` (several hours, 16 GB of RAM, 30–40 GB of disk) |
+
+Locally the image is named `vswitch-op4s:<tag>`. To use a fixed version, pull and tag
+it as above with that version and start switches with `-v <version>`.
+How new versions are built and published is described in [RELEASING.md](RELEASING.md).
 
 ## Requirements
 
 See [Setting up a new machine](#setting-up-a-new-machine) for step-by-step instructions.
 
 - Linux x86_64 host with Docker.
-- Internet access to pull the prebuilt image (about 200 MB), or an offline package.
-- Only to **build** the image yourself: Docker with BuildKit, 16 GB+ RAM and
-  30–40 GB of free disk space.
+- Internet access to pull the [image](#the-docker-image), or an offline package.
 - To **run** switches: containers need `--privileged` (or `NET_ADMIN`) to create
   the veth interfaces. The start script already does this.
 - Optional, to configure switches from JSON files:
@@ -69,21 +100,16 @@ git clone https://github.com/mgaflip/vswitch-op4s.git
 cd vswitch-op4s
 ```
 
-**4. Get the switch image.** Pull the prebuilt image from GitHub Container Registry
-(about 200 MB):
+**4. Get the switch image (optional).** The start script and the examples pull it the
+first time. To download it in advance:
 
 ```bash
 docker pull ghcr.io/mgaflip/vswitch-op4s:latest
 docker tag ghcr.io/mgaflip/vswitch-op4s:latest vswitch-op4s:latest
 ```
 
-This step is optional: `start-vswitch-op4s-container.sh` and the examples pull the image
-themselves the first time they need it. To use a fixed version instead of `latest`,
-pull and tag that version (for example `0.1.0`) and start switches with `-v 0.1.0`.
-
-Alternatively, load it from an [offline package](#installing-without-internet-access),
-or build it from scratch (several hours,
-16 GB of RAM, 30–40 GB of free disk) with `./build-vswitch-op4s-container.sh`.
+See [The Docker image](#the-docker-image) for fixed versions, offline installation and
+building it yourself.
 
 **5. Hugepages.** Reserve 72 per switch you will run, plus any switch already running
 on the host (see [Hugepages](#hugepages)). For 2 switches:
