@@ -31,7 +31,7 @@ about 4 GB of free RAM and 2 cores, plus `sudo` for the links. It uses the names
 
 **1. Compile the P4 program.** This creates `build/` with `basic_router.conf`,
 `bf-rt.json` and `pipe/`. Only needed once, or after editing the `.p4`. The first time it
-needs internet access, to install the C preprocessor in a temporary container.
+needs internet access, to install gcc (used by the P4 compiler) in a temporary container.
 
 ```bash
 cd examples/basic_router

@@ -27,10 +27,11 @@ echo "Compiling ${PROG}.p4 with image ${IMAGE}"
 docker run --rm -v "$DIR:/p4" -w /p4 --entrypoint bash "$IMAGE" -c "
 set -euo pipefail
 
-# The P4 compiler needs the C preprocessor, which the slim runtime image may not include
-if ! command -v cpp > /dev/null; then
-    echo 'Installing the C preprocessor (cpp) in this temporary container...'
-    apt-get update -qq && apt-get install -y -qq --no-install-recommends cpp > /dev/null
+# The P4 compiler preprocesses the program with \"cc -E\", and the slim runtime image
+# has no C compiler: install gcc (which provides cc) in this temporary container
+if ! command -v cc > /dev/null; then
+    echo 'Installing gcc (the P4 compiler runs cc -E) in this temporary container...'
+    apt-get update -qq && apt-get install -y -qq --no-install-recommends gcc > /dev/null
 fi
 
 COMPILER=\$(command -v bf-p4c || command -v p4c || true)

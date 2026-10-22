@@ -89,7 +89,8 @@ else
     echo "(p4-bfrt-manager not found: using bfrt_python inside the switches)"
     for sw in sw1 sw2; do
         docker cp "$DIR/$sw.py" "$sw:/tmp/$sw.py"
-        docker exec "$sw" "$SDE/run_bfshell.sh" -b "/tmp/$sw.py"
+        # bfshell only runs the script with a terminal (-t); without one it exits silently
+        docker exec -t "$sw" "$SDE/run_bfshell.sh" -b "/tmp/$sw.py"
     done
 fi
 
