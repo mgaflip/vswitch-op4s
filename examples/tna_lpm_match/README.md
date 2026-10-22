@@ -9,11 +9,18 @@ open-p4studio P4-16 examples that are already compiled into the image:
  gw .254                                                                  gw .254
 ```
 
+On a new machine, first follow
+[Setting up a new machine](../../README.md#setting-up-a-new-machine) in the main README.
+No compilation is needed:
+
 ```bash
 cd examples/tna_lpm_match
-./run.sh          # switches, hosts, links, routes and a ping test
-./teardown.sh     # remove everything
+BFRT_PYTHON=~/venvs/bfrt/bin/python ./run.sh   # switches, hosts, links, routes and a ping test
+./teardown.sh                                  # remove everything
 ```
+
+The ping replies show `ttl=64`: unlike `basic_router`, this program does not decrement
+the TTL.
 
 ## How tna_lpm_match is used
 

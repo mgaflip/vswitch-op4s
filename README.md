@@ -11,6 +11,8 @@ connect them to each other and to hosts, and configure them remotely with
 
 ## Requirements
 
+See [Setting up a new machine](#setting-up-a-new-machine) for step-by-step instructions.
+
 - Linux host with Docker (BuildKit enabled, the default in recent versions).
 - To **build** the image: 16 GB+ RAM and 30–40 GB of free disk space.
 - To **run** switches: containers need `--privileged` (or `NET_ADMIN`) to create
@@ -20,6 +22,79 @@ connect them to each other and to hosts, and configure them remotely with
   [Configuring switches](#configuring-switches-with-p4-bfrt-manager)).
 - Each running switch uses about **520 MB of RAM**, **half a CPU core** and
   **72 hugepages** (2 MB each, 144 MB) on the host. See [Hugepages](#hugepages).
+
+## Setting up a new machine
+
+These steps prepare a machine to run switches and the [examples](examples). They
+assume Ubuntu 24.04 on x86_64, `sudo` and internet access.
+
+**1. System tools.** Skip `docker.io` if Docker is already installed (for example, as a snap).
+
+```bash
+sudo apt update
+sudo apt install -y docker.io git python3-venv iproute2 util-linux ethtool
+sudo usermod -aG docker $USER      # then log out and back in
+docker run --rm hello-world        # check that Docker works
+```
+
+**2. Docker MTU on cloud VMs (OpenStack, etc.).** If the main network interface has an
+MTU below 1500 (`ip link | grep mtu`), give Docker the same value. Otherwise, containers
+and builds hang when downloading.
+
+```bash
+# Docker installed with apt
+echo '{ "mtu": 1400 }' | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker
+
+# Docker installed as a snap: add "mtu": 1400 to
+#   /var/snap/docker/current/config/daemon.json
+# and run: sudo snap restart docker
+```
+
+If `daemon.json` already has content, add `"mtu": 1400` inside the existing braces.
+
+**3. Get the project.**
+
+```bash
+git clone https://github.com/mgaflip/open-p4studio-vswitch.git
+cd open-p4studio-vswitch
+```
+
+**4. Get the switch image.** Either load a prebuilt package (a few minutes), created
+with `./pack-vswitch-op4s-container.sh` on a machine that has the image or downloaded
+from a release:
+
+```bash
+tar xzf vswitch-op4s-latest.tgz -C /tmp
+docker load -i /tmp/vswitch-op4s/images/vswitch-op4s-latest-docker.tar.gz
+```
+
+or build it from scratch (several hours, 16 GB of RAM, 30–40 GB of free disk):
+
+```bash
+./build-vswitch-op4s-container.sh
+```
+
+Check it with `docker images vswitch-op4s`.
+
+**5. Hugepages.** Reserve 72 per switch you will run, plus any switch already running
+on the host (see [Hugepages](#hugepages)). For 2 switches:
+
+```bash
+sudo sysctl -w vm.nr_hugepages=196
+echo "vm.nr_hugepages = 196" | sudo tee /etc/sysctl.d/90-vswitch-hugepages.conf
+```
+
+**6. p4-bfrt-manager (optional).** Used by `configure-vswitch-op4s.py` and the examples
+to configure the switches over gRPC:
+
+```bash
+python3 -m venv ~/venvs/bfrt
+~/venvs/bfrt/bin/pip install git+https://github.com/mgaflip/p4-bfrt-manager.git
+```
+
+The machine is now ready: start a switch with `./start-vswitch-op4s-container.sh`, or
+run one of the [examples](#example-network).
 
 ## Hugepages
 

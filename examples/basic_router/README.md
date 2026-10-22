@@ -22,22 +22,59 @@ two hosts in different subnets:
 
 ## Running it
 
+On a new machine, first follow
+[Setting up a new machine](../../README.md#setting-up-a-new-machine) in the main README
+(Docker, switch image, hugepages and, optionally, p4-bfrt-manager). This example needs
+about 4 GB of free RAM, 2 cores and 2 × 72 hugepages.
+
+**1. Compile the P4 program.** This creates `build/` with `basic_router.conf`,
+`bf-rt.json` and `pipe/`. Only needed once, or after editing the `.p4`.
+
 ```bash
 cd examples/basic_router
-./compile.sh      # creates build/ (only needed once, or after editing the .p4)
-./run.sh          # switches, hosts, links, routes and a ping test
-./teardown.sh     # remove everything
+./compile.sh
 ```
 
-`run.sh` needs `sudo` and 2 × 72 free hugepages (see the main README).
+**2. Build the network and test it.** `run.sh` asks for `sudo` (for the links and the
+host configuration). It starts `sw1` and `sw2` with `basic_router`, creates `h1` and
+`h2`, links them, configures the hosts, loads ports and routes, and ends with a ping:
 
-After `run.sh`, you can keep testing by hand:
+```bash
+BFRT_PYTHON=~/venvs/bfrt/bin/python ./run.sh
+```
+
+```
+== Test: ping from h1 to h2
+64 bytes from 10.0.2.1: seq=0 ttl=62 time=...
+```
+
+`ttl=62` shows that the reply went through two routers, each decrementing the TTL.
+Without `BFRT_PYTHON`, routes are loaded with `bfrt_python` inside the switches
+(see [below](#ports-and-routes-p4-bfrt-manager-or-bfrt_python)).
+
+**3. Test by hand.**
 
 ```bash
 docker exec -it h1 ping 10.0.2.1
 docker exec -it h2 ping 10.0.1.1
+../../list-vswitch-op4s-containers.sh
 docker attach sw1                    # bfshell (detach with Ctrl-P Ctrl-Q)
 ```
+
+**4. Clean up.**
+
+```bash
+./teardown.sh
+```
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `compile.sh` hangs while downloading | Docker MTU larger than the network's | Step 2 of [Setting up a new machine](../../README.md#setting-up-a-new-machine) |
+| A switch stops a few seconds after starting | Not enough hugepages | [Hugepages](../../README.md#hugepages); the start script warns about it |
+| `permission denied` when using Docker | User not in the `docker` group | `sudo usermod -aG docker $USER`, then log in again |
+| The ping gets no reply | Routes not loaded, or field names differ in your SDE version | Check the output of the routes step in `run.sh` |
 
 ## How the program works
 
