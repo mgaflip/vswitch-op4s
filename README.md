@@ -9,12 +9,21 @@ on port `50052`. You can run several switches at once, each with its own name an
 connect them to each other and to hosts, and configure them remotely with
 [p4-bfrt-manager](https://github.com/mgaflip/p4-bfrt-manager).
 
+A prebuilt image is published on GitHub Container Registry, so there is nothing to
+compile: the start script pulls it the first time.
+
+```bash
+docker pull ghcr.io/mgaflip/vswitch-op4s:latest
+```
+
 ## Requirements
 
 See [Setting up a new machine](#setting-up-a-new-machine) for step-by-step instructions.
 
-- Linux host with Docker (BuildKit enabled, the default in recent versions).
-- To **build** the image: 16 GB+ RAM and 30–40 GB of free disk space.
+- Linux x86_64 host with Docker.
+- Internet access to pull the prebuilt image (about 200 MB), or an offline package.
+- Only to **build** the image yourself: Docker with BuildKit, 16 GB+ RAM and
+  30–40 GB of free disk space.
 - To **run** switches: containers need `--privileged` (or `NET_ADMIN`) to create
   the veth interfaces. The start script already does this.
 - Optional, to configure switches from JSON files:
@@ -56,26 +65,25 @@ If `daemon.json` already has content, add `"mtu": 1400` inside the existing brac
 **3. Get the project.**
 
 ```bash
-git clone https://github.com/mgaflip/open-p4studio-vswitch.git
-cd open-p4studio-vswitch
+git clone https://github.com/mgaflip/vswitch-op4s.git
+cd vswitch-op4s
 ```
 
-**4. Get the switch image.** Either load a prebuilt package (a few minutes), created
-with `./pack-vswitch-op4s-container.sh` on a machine that has the image or downloaded
-from a release:
+**4. Get the switch image.** Pull the prebuilt image from GitHub Container Registry
+(about 200 MB):
 
 ```bash
-tar xzf vswitch-op4s-latest.tgz -C /tmp
-docker load -i /tmp/vswitch-op4s/images/vswitch-op4s-latest-docker.tar.gz
+docker pull ghcr.io/mgaflip/vswitch-op4s:latest
+docker tag ghcr.io/mgaflip/vswitch-op4s:latest vswitch-op4s:latest
 ```
 
-or build it from scratch (several hours, 16 GB of RAM, 30–40 GB of free disk):
+This step is optional: `start-vswitch-op4s-container.sh` and the examples pull the image
+themselves the first time they need it. To use a fixed version instead of `latest`,
+pull and tag that version (for example `0.1.0`) and start switches with `-v 0.1.0`.
 
-```bash
-./build-vswitch-op4s-container.sh
-```
-
-Check it with `docker images vswitch-op4s`.
+Alternatively, load it from a package created with `./pack-vswitch-op4s-container.sh`
+(useful on machines without internet access), or build it from scratch (several hours,
+16 GB of RAM, 30–40 GB of free disk) with `./build-vswitch-op4s-container.sh`.
 
 **5. Hugepages.** Reserve 72 per switch you will run, plus any switch already running
 on the host (see [Hugepages](#hugepages)). For 2 switches:
@@ -145,21 +153,23 @@ them (`sleep 10`) so each one has reserved its hugepages before the next check.
 ## Quick start
 
 ```bash
-# 1. Build the image (clones open-p4studio and compiles it; takes a long time)
-./build-vswitch-op4s-container.sh
+git clone https://github.com/mgaflip/vswitch-op4s.git && cd vswitch-op4s
 
-# 2. Start a switch with the defaults: Tofino, tna_counter, ports 0-3
+# 1. Start a switch with the defaults: Tofino, tna_counter, ports 0-3
+#    (the first time, the image is pulled from ghcr.io/mgaflip/vswitch-op4s)
 ./start-vswitch-op4s-container.sh
 
-# 3. List switches
+# 2. List switches
 ./list-vswitch-op4s-containers.sh
 
-# 4. Open the bfshell prompt (detach with Ctrl-P Ctrl-Q)
+# 3. Open the bfshell prompt (detach with Ctrl-P Ctrl-Q)
 docker attach sw1
 
-# 5. Stop all switches
+# 4. Stop all switches
 ./kill-vswitch-op4s-containers.sh
 ```
+
+More than 2 switches need more hugepages: see [Hugepages](#hugepages).
 
 ## Starting switches
 
@@ -410,7 +420,31 @@ docker exec sw1 tail -f /var/log/tofino/tofino_model.log
 docker exec -it sw1 bash
 ```
 
-## Packaging for distribution
+## Distributing the image
+
+**Registry (recommended).** Prebuilt images are published on GitHub Container Registry
+as `ghcr.io/mgaflip/vswitch-op4s`, with a `latest` tag and one tag per version
+(`0.1.0`, ...). `start-vswitch-op4s-container.sh` pulls the image when it is not
+available locally.
+
+To publish a new version (maintainers), after building it with
+`./build-vswitch-op4s-container.sh`, log in with a GitHub token that has the
+`write:packages` scope and push both tags:
+
+```bash
+docker login ghcr.io -u mgaflip            # paste the token when asked for a password
+docker tag vswitch-op4s:latest ghcr.io/mgaflip/vswitch-op4s:0.2.0
+docker tag vswitch-op4s:latest ghcr.io/mgaflip/vswitch-op4s:latest
+docker push ghcr.io/mgaflip/vswitch-op4s:0.2.0
+docker push ghcr.io/mgaflip/vswitch-op4s:latest
+docker logout ghcr.io
+```
+
+The image carries the `org.opencontainers.image.source` label, so GitHub links the
+package to this repository automatically.
+
+**Offline package.** For machines without internet access, pack the image and the
+scripts into a single file:
 
 ```bash
 ./pack-vswitch-op4s-container.sh              # image + scripts -> vswitch-op4s-latest.tgz
@@ -432,4 +466,16 @@ tar xzf vswitch-op4s-latest.tgz && cd vswitch-op4s && ./start-vswitch-op4s-conta
 
 ## License
 
-Apache-2.0. open-p4studio is distributed under its own license; see its repository.
+Copyright RSTI - Universidad Politécnica de Madrid (UPM). The scripts, examples and
+Dockerfile in this repository are licensed under the Apache License 2.0; see
+[LICENSE](LICENSE).
+
+The Docker image contains binaries built from
+[open-p4studio](https://github.com/p4lang/open-p4studio), which is distributed mainly
+under the Apache License 2.0, with some components (such as the kernel modules, not
+included in the image) under GPL-2.0-or-later. Its license files and third-party
+notices are included in the image under `/home/open-p4studio/licenses/`:
+
+```bash
+docker run --rm --entrypoint ls vswitch-op4s:latest licenses
+```

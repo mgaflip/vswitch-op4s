@@ -13,6 +13,15 @@ PROG=basic_router
 IMAGE=${IMAGE:-vswitch-op4s:latest}
 SDE_INSTALL=/home/open-p4studio/install
 
+REGISTRY_IMAGE=${REGISTRY_IMAGE:-ghcr.io/mgaflip/vswitch-op4s}
+
+# Get the image from the registry if it is not available locally
+if [ -z "$(docker images -q "$IMAGE" 2> /dev/null)" ]; then
+    echo "Pulling ${REGISTRY_IMAGE}:${IMAGE##*:}"
+    docker pull "${REGISTRY_IMAGE}:${IMAGE##*:}"
+    docker tag "${REGISTRY_IMAGE}:${IMAGE##*:}" "$IMAGE"
+fi
+
 echo "Compiling ${PROG}.p4 with image ${IMAGE}"
 
 docker run --rm -v "$DIR:/p4" -w /p4 --entrypoint bash "$IMAGE" -c "

@@ -46,6 +46,14 @@ RUN cd /home/open-p4studio/install && \
 ############################
 FROM ubuntu:24.04 AS runtime
 
+# Image metadata (OCI labels). "source" lets GitHub link the image published on
+# ghcr.io to its repository automatically.
+LABEL org.opencontainers.image.title="vswitch-op4s"
+LABEL org.opencontainers.image.description="Intel Tofino virtual switch (tofino-model + bf_switchd) built from open-p4studio"
+LABEL org.opencontainers.image.source="https://github.com/mgaflip/vswitch-op4s"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.vendor="RSTI - Universidad Politécnica de Madrid (UPM)"
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Runtime dependencies (installed before copying install/ to make use of the cache).
@@ -72,6 +80,10 @@ ENV PATH="$PATH:$SDE:$SDE_INSTALL/bin"
 
 COPY --from=builder /home/open-p4studio/run_*.sh ./
 COPY --from=builder /home/open-p4studio/install ./install
+
+# License and third-party notices of open-p4studio, whose binaries this image contains
+COPY --from=builder /home/open-p4studio/LICENSE /home/open-p4studio/ThirdPartyNotice.txt ./licenses/
+COPY --from=builder /home/open-p4studio/LICENSES ./licenses/LICENSES
 COPY --chmod=755 start-tofino-switch.sh ./
 
 # BF Runtime gRPC port

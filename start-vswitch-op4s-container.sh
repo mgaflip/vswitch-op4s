@@ -20,6 +20,7 @@ IMGDIR=${HOME_DIR}/images
 
 MODEL_DESC="Open P4 Studio Virtual Switch Docker Image"
 MODEL_NAME=vswitch-op4s
+REGISTRY_IMAGE=${REGISTRY_IMAGE:-ghcr.io/mgaflip/vswitch-op4s}   # where prebuilt images are published
 
 # ---- Defaults (can be overridden by environment variables or options) ----
 MODEL_VERSION=${MODEL_VERSION:-latest}   # image tag
@@ -58,6 +59,8 @@ Options:
   -g, --grpc-port N        Also publish gRPC (50052) on host port N, to reach
                            the switch from outside the VM (0 = random port)
   -v, --version TAG        Image tag                 (default: ${MODEL_VERSION})
+                           If not available locally, it is loaded from images/ or
+                           pulled from ${REGISTRY_IMAGE}
   -i, --interactive        Stay attached to the bfshell prompt
   -k, --keep               Keep the container after it stops, to read its logs
                            (remove it later with: docker rm NAME)
@@ -101,12 +104,17 @@ DKIMG_FILE=${IMGDIR}/${MODEL_NAME}-${MODEL_VERSION}-docker.tar.gz
 
 echo "Starting ${MODEL_DESC}"
 
-# ---- Load the image if it is not available yet ----
+# ---- Get the image if it is not available yet ----
+# 1. already in Docker  2. saved file in images/ (from a package)  3. pulled from the registry
 if [ -n "$(docker images -q "${MODEL_IMAGE}" 2> /dev/null)" ]; then
     echo "Using image ${MODEL_IMAGE}"
-else
+elif [ -f "${DKIMG_FILE}" ]; then
     echo "Loading docker image ${MODEL_IMAGE} from file ${DKIMG_FILE}"
     docker load -i "${DKIMG_FILE}"
+else
+    echo "Pulling docker image ${REGISTRY_IMAGE}:${MODEL_VERSION}"
+    docker pull "${REGISTRY_IMAGE}:${MODEL_VERSION}"
+    docker tag "${REGISTRY_IMAGE}:${MODEL_VERSION}" "${MODEL_IMAGE}"
 fi
 
 # ---- Container name ----
